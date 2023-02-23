@@ -1,0 +1,528 @@
+RAGHVENDRA SINGH SHAKTAWAT
+
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(stringr)
+library(klaR)
+library(psych)
+library(forcats)
+library(caret)
+library(corrplot)
+```
+
+
+USED CAR SALES DATASET
+
+
+
+```{r}
+#Loading the dataset
+setwd("C:/Users/raghv/Downloads")
+cars.df <- read.csv("used_car_sales_ebay.csv")
+head(cars.df)
+dim(cars.df)
+```
+
+After unloading the data set and creating its data frame into my R studio, I explored the data.
+
+```{r}
+str(cars.df)
+```
+
+The columns are mainly in the integer and character form and the summary of the data set is present below.
+
+```{r}
+glimpse(cars.df)
+```
+
+```{r}
+summary(cars.df)
+```
+
+Here, I removed the columns that are mentioned and created a new data frame which has six columns i.e., pricesold, yearsold, Mileage, Year, NumCylinders and DriveType.
+
+```{r}
+cars_df <- subset(cars.df, select = -c(1, 4, 6, 7, 9, 10, 11))
+head(cars_df)
+```
+
+```{r}
+colSums(is.na(cars_df))
+```
+
+This is to check the na values and I also eliminated the row that have zero value in NumCylinders column and also checked for the NA values in the drive type column.
+
+```{r}
+cars_df <- cars_df[cars_df$NumCylinders != 0, ]
+```
+
+```{r}
+table(is.na(cars_df$DriveType))
+```
+
+```{r}
+cars_df <- cars_df %>% drop_na()
+head(cars_df)
+```
+
+I also dropped all the NA values to make the data set much more cleaner and converted the drive type column into a binary factor column with two values of zero and one.
+
+```{r}
+cars_df$DriveType <- factor(ifelse(cars_df$DriveType == "RWD", 1, 0))
+head(cars_df)
+```
+
+
+Taking care of outliers.
+
+
+```{r}
+min(cars_df$pricesold)
+max(cars_df$pricesold)
+```
+
+```{r}
+min(cars_df$Mileage)
+max(cars_df$Mileage)
+```
+
+```{r}
+min(cars_df$NumCylinders)
+max(cars_df$NumCylinders)
+```
+
+First of all, I checked for the minimum and maximum values for different columns such as pricesold, Mileage and NumCylinders.
+
+```{r}
+summary(cars_df$Mileage)
+```
+
+I also visualized the outliers for the pricesold and Mileage column which can be seen in the form of a box plot here.
+
+```{r}
+ggplot(cars_df, aes(pricesold)) + geom_boxplot(outlier.colour = "red", color = "blue") + labs(x = "pricesold")
+```
+
+```{r}
+ggplot(cars_df, aes(Mileage)) + geom_boxplot(outlier.colour = "green", color = "blue") + labs(x = "Mileage")
+```
+
+Also I am taking a major value of those cars that traveled more than 300000 miles as outliers and choose to remove them from the data set.
+
+```{r}
+cars.df <- cars_df
+cars.no.df <- cars.df %>% filter(Mileage > 300000)
+```
+
+```{r}
+mean_po <- mean(cars.no.df$pricesold)
+mean_po
+```
+
+```{r}
+sd_po <- sd(cars.no.df$pricesold)
+sd_po
+```
+
+```{r}
+diff <- (mean_po - (3 * sd_po))
+diff
+```
+
+```{r}
+add <- (mean_po + (3 * sd_po))
+add
+```
+
+Finally, I calculated the mean and standard deviation for the price sold column and performed the Z score elimination procedure to further make the data sets free of outliers.
+
+```{r}
+cars.no.df <- cars.no.df %>% filter((pricesold > diff) & (pricesold < add))
+head(cars.no.df)
+```
+
+```{r}
+cars.no.df <- cars.no.df %>% filter((Mileage <= 500000) & (Year <= 2020) & (Year >= 1900) & (NumCylinders <= 16))
+nrow(cars.no.df)
+```
+
+Now I am using pairs.panel, to show the distributions of each of the numeric features in the data set with outliers removed 
+
+```{r}
+pairs.panels(cars.no.df)
+```
+
+I installed the KLAR package and used pairs.panel to visualize the distribution of the numeric features that are present in the data set after removing the outliers.
+
+```{r}
+ks.test(cars.no.df$pricesold, y = "pnorm")
+ks.test(cars.no.df$yearsold, y = "pnorm")
+ks.test(cars.no.df$Mileage, y = "pnorm")
+ks.test(cars.no.df$Year, y = "pnorm")
+ks.test(cars.no.df$NumCylinders, y = "pnorm")
+```
+
+For checking the normality of each column, I used two different methods one being the Kolmogorov-Smirnov test and another is the Shapiro-Wilk normality test.
+
+```{r}
+shapiro.test(cars.no.df$pricesold)
+shapiro.test(cars.no.df$yearsold)
+shapiro.test(cars.no.df$Mileage)
+shapiro.test(cars.no.df$Year)
+shapiro.test(cars.no.df$NumCylinders)
+```
+
+```{r}
+log_pricesold <- log1p(cars.no.df$pricesold)
+log_Mileage <- log1p(cars.no.df$Mileage)
+log_Year <- log1p(cars.no.df$Year)
+log_NumCylinders <- log1p(cars.no.df$NumCylinders)
+```
+
+Also,I’d normalize the features using the log as I converted some of the columns into log to normalize them and thus created a new data frame which possess log values for those columns.
+
+```{r}
+data_frame_new <- data.frame(log_pricesold, log_Mileage, log_Year, log_NumCylinders)
+head(data_frame_new)
+```
+
+```{r}
+data_frame_merge <- cbind(cars.no.df, data_frame_new)
+head(data_frame_merge)
+```
+Finally I merged the original data frame with the newly created log data frame and named it as data_frame_merge.
+
+```{r}
+cars.tx <- subset(data_frame_merge, select = c(2, 6, 7, 8, 9, 10))
+head(cars.tx)
+```
+
+```{r}
+cars.no.df$DriveType <- as.numeric(cars.no.df$DriveType)
+```
+
+
+```{r}
+correlations <- cor(cars.no.df[c("pricesold", "yearsold", "Mileage", "Year", "NumCylinders", "DriveType")], method = "pearson",use = "complete.obs")
+correlations
+```
+
+To check the correlations, I use the cor function and also plotted the correlations which can be seen in the visualization below.
+
+```{r}
+corrplot(correlations, method="color")
+```
+
+The maximum correlation of mileage can be seen with the price sold column as compared to the other columns. However the correlation is still not very strong but it is comparatively stronger than the other columns.
+
+
+
+Now,I am splitting each of the three data sets, cars.no.df, cars.df, and cars.tx 75%/25% to retain 25% for testing using random sampling without replacement. I will also call the data sets, cars.training and cars.testing, cars.no.training and cars.no.testing, and cars.tx.training and cars.tx.testing.
+
+```{r}
+set.seed(100)
+train.size <- 0.75
+train.index <- sample.int(nrow(cars.no.df), round(nrow(cars.no.df) * train.size))
+cars.no.training <- cars.no.df[train.index,]
+cars.no.testing <- cars.no.df[-train.index,]
+head(cars.no.training)
+head(cars.no.testing)
+dim(cars.no.training)
+dim(cars.no.testing)
+```
+
+
+```{r}
+set.seed(100)
+train.size <- 0.75
+train.index <- sample.int(nrow(cars.df), round(nrow(cars.df) * train.size))
+cars.training <- cars.df[train.index,]
+cars.testing <- cars.df[-train.index,]
+head(cars.training)
+head(cars.testing)
+dim(cars.training)
+dim(cars.testing)
+```
+
+
+```{r}
+set.seed(100)
+train.size <- 0.75
+train.index <- sample.int(nrow(cars.tx), round(nrow(cars.tx) * train.size))
+cars.tx.training <- cars.tx[train.index,]
+cars.tx.testing <- cars.tx[-train.index,]
+head(cars.tx.training)
+head(cars.tx.testing)
+dim(cars.tx.training)
+dim(cars.tx.testing)
+```
+
+Here, I split the three data sets into a ratio of 75 to 25% for the training and testing data sets, respectively.
+I also found it necessary to convert the DriveType column into factor form with the factors of zero and one value because I was getting error so I converted this column into factor form.
+
+```{r}
+cars.no.df$DriveType <- factor(ifelse(cars.no.df$DriveType == "2", 1, 0))
+```
+
+
+Now, I am building three full multiple regression models for predicting Mileage: one with cars.training, one with cars.no.training, and one with cars.tx.training, i.e., regression models that contains all features regardless of their p-values. I will call the models reg.full, reg.no, and reg.tx.
+
+```{r}
+reg.full <- lm(Mileage ~ ., data = cars.training)
+reg.no <- lm(Mileage ~ ., data = cars.no.training)
+reg.tx <- lm(log_Mileage ~ ., data = cars.tx.training)
+```
+
+Here, I built three full multiple regression models for predicting the mileage and the summary is presented below with different values of P and residual Standard error.
+
+```{r}
+summary(reg.full)
+summary(reg.no)
+summary(reg.tx)
+```
+
+
+I am building three ideal multiple regression models for cars.training, cars.no.training, and cars.tx.training using backward elimination based on p-value for predicting Mileage.
+
+```{r}
+reg.full.backward.a <- lm(data = cars.training, Mileage ~ .)
+reg.full.backward.a
+```
+
+```{r}
+summary(reg.full.backward.a)
+```
+
+Above one is the first linear model. Here, I used the entire data set and the lm function and presented a summary of it. The lm function is used to formula mode where an independent variable is used in relation to the predictor variables. Here, Mileage is used in relation to the other columns of the data set. The summary of this model shows the collection of estimates. The relationship between the coefficients is displayed here. The negative correlation indicates an inversely proportional relationship between the two variables and columns as if the value of one goes up, the other goes down. Whereas, in a positive correlation, the values are in a directly proportional relationship, which means that the values of both the columns will increase or decrease simultaneously. If the value is far away from 1, it indicates a weak correlation. The * symbol indicates the degree of confidence in the value i.e., the probability of whether or not we can trust this value and the probability of rejecting this value is quite low. Also, there are some coefficients which have the highest probability of getting rejected. I am going to reject them in the coming models to create a final model.
+
+```{r}
+reg.full.backward.b <- lm(data = cars.training, Mileage ~ yearsold + Year + NumCylinders + DriveType)
+reg.full.backward.b
+```
+
+```{r}
+summary(reg.full.backward.b)
+```
+
+Here, I used backward elimination procedure to eliminate the the worst or least trusted variable, one at a time. In the above model, that eliminated variable is “pricesold” with a p-value of 0.99082 . The reason for eliminating it is because of its highest p value among the other values.
+
+```{r}
+reg.full.backward.c <- lm(data = cars.training, Mileage ~ yearsold + Year + DriveType)
+reg.full.backward.c
+```
+
+```{r}
+summary(reg.full.backward.c)
+```
+
+After eliminating pricesold variable in the above model, the R-squared is almost identical as it improved a bit but is almost insignificant. But the variable NumCylinders is eliminated which does not contribute much to the final formula. The next variable that I am going to eliminate is “Year” with a value of 0.92831  ( more than the other values present ) which is eliminated in the below model.
+
+```{r}
+reg.full.backward.d <- lm(data = cars.training, Mileage ~ yearsold + DriveType)
+reg.full.backward.d
+```
+
+```{r}
+summary(reg.full.backward.d)
+```
+
+Now, I will continue the backward elimination process and remove other features from the model below:
+
+```{r}
+reg.no.backward.a <- lm(data = cars.no.training, Mileage ~ .)
+reg.no.backward.a
+```
+
+```{r}
+summary(reg.no.backward.a)
+```
+
+```{r}
+reg.no.backward.b <- lm(data = cars.no.training, Mileage ~ pricesold + yearsold + Year + NumCylinders)
+reg.no.backward.b
+```
+
+```{r}
+summary(reg.no.backward.b)
+```
+
+```{r}
+reg.no.backward.c <- lm(data = cars.no.training, Mileage ~ pricesold + yearsold + Year)
+reg.no.backward.c
+```
+
+```{r}
+summary(reg.no.backward.c)
+```
+
+
+```{r}
+reg.no.backward.d <- lm(data = cars.no.training, Mileage ~ pricesold + Year)
+reg.no.backward.d
+```
+
+```{r}
+summary(reg.no.backward.d)
+```
+
+```{r}
+reg.tx.backward.a <- lm(data = cars.tx.training, log_Mileage ~ .)
+reg.tx.backward.a
+```
+
+```{r}
+summary(reg.tx.backward.a)
+```
+
+```{r}
+reg.tx.backward.b <- lm(data = cars.tx.training, log_Mileage ~ yearsold + DriveType + log_pricesold + log_Year)
+reg.tx.backward.b
+```
+
+```{r}
+summary(reg.tx.backward.b)
+```
+
+```{r}
+reg.tx.backward.c <- lm(data = cars.tx.training, log_Mileage ~ yearsold + log_pricesold + log_Year)
+reg.tx.backward.c
+```
+
+```{r}
+summary(reg.tx.backward.c)
+```
+
+```{r}
+reg.tx.backward.d <- lm(data = cars.tx.training, log_Mileage ~ log_pricesold + log_Year)
+reg.tx.backward.d
+```
+
+```{r}
+summary(reg.tx.backward.d)
+```
+
+
+
+In order to provide the analysis of six models using their testing data sets, R-squared value and RMSE, I used the predict function as well as displayed the summary and RMSE value of it. 
+
+Model 1
+
+```{r}
+m1 <- predict(reg.full, cars.testing)
+summary(reg.full)$r.squared
+```
+
+```{r}
+RMSE(cars.testing$Mileage, m1)
+```
+
+Model 2
+
+```{r}
+m2 <- predict(reg.full.backward.d, cars.testing)
+summary(reg.full.backward.d)$r.squared
+```
+
+```{r}
+RMSE(cars.testing$Mileage, m2)
+```
+
+Model 3
+
+```{r}
+m3 <- predict(reg.no, cars.no.testing)
+summary(reg.no)$r.squared
+```
+
+```{r}
+RMSE(cars.no.testing$Mileage, m3)
+```
+
+Among the first three models the maximum RMS value is of model 1 with a value of 28638423.
+
+
+Model 4
+
+```{r}
+m4 <- predict(reg.no.backward.d, cars.no.testing)
+summary(reg.no.backward.d)$r.squared
+```
+
+```{r}
+RMSE(cars.no.testing$Mileage, m4)
+```
+
+Model 5
+
+```{r}
+m5 <- predict(reg.tx, cars.tx.testing)
+summary(reg.tx)$r.squared
+```
+
+```{r}
+RMSE(cars.tx.testing$log_Mileage, m5)
+```
+
+Model 6
+
+```{r}
+m6 <- predict(reg.tx.backward.d, cars.tx.testing)
+summary(reg.tx.backward.d)$r.squared
+```
+
+```{r}
+RMSE(cars.tx.testing$log_Mileage, m6)
+```
+
+The least RMSE value among all the models is of Model 3 at a value of 44494.95.
+
+
+```{r}
+chevrolet_blazer <- data.frame(Year = 1999, NumCylinders = 6, DriveType  = 0, yearsold = 2019, pricesold = 9450)
+chevrolet_blazer
+```
+Here, I first created a new data frame and added all the columns as per the values that are assigned here.
+
+```{r}
+chevrolet_blazer$DriveType <- as.factor(chevrolet_blazer$DriveType)
+```
+
+I had to convert the DriveType column into factor so as to proceed here because all the columns were present in numeric form and it was important to convert it into factor to predict the value as well as to implement value from the previous models.
+
+
+```{r}
+str(chevrolet_blazer)
+```
+
+```{r}
+predict(reg.full, chevrolet_blazer)
+predict(reg.full.backward.d, chevrolet_blazer)
+```
+
+```{r}
+chevrolet_blazer$DriveType <- as.numeric(chevrolet_blazer$DriveType)
+predict(reg.no, chevrolet_blazer)
+predict(reg.no.backward.d, chevrolet_blazer)
+```
+
+```{r}
+log_chevrolet_blazer <- data.frame(log_Year = log1p(1999), log_NumCylinders = log1p(6), DriveType  = 0, yearsold = 2019, log_pricesold = log1p(9450))
+log_chevrolet_blazer
+```
+
+I also found it necessary to use the log values to normalize the features and used the predicted odometer readings/ Mileage of Chevrolet blazer which can be seen below:
+
+```{r}
+log_chevrolet_blazer$DriveType <- as.factor(log_chevrolet_blazer$DriveType)
+```
+
+```{r}
+predict(reg.tx, log_chevrolet_blazer)
+predict(reg.tx.backward.d, log_chevrolet_blazer)
+```
+
+
+
+THANK YOU
